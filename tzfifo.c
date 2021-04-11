@@ -4,6 +4,7 @@
 
 #include "tzfifo.h"
 #include "tzmalloc.h"
+#include <string.h>
 
 #pragma pack(1)
 
