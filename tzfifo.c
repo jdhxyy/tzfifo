@@ -27,7 +27,7 @@ typedef struct {
 // itemSum:fifo中元素数.注意不是字节数
 // itemSize:元素大小.单位: 字节
 // 如果是字节流元素,元素大小为字节流最大长度+2,2是字节流长度
-// 如果是混合结构元素,元素大小为字节流驻地啊长度+4,4是结构体长度和字节流长度
+// 如果是混合结构元素,元素大小为字节流最大长度+4,4是结构体长度和字节流长度
 // 创建成功返回fifo句柄.如果返回的是0表示创建失败
 intptr_t TZFifoCreate(int mid, int itemSum, int itemSize) {
     if (mid  < 0 || itemSum <= 0 || itemSum <= 0) {
@@ -92,13 +92,34 @@ bool TZFifoWriteBatch(intptr_t handle, uint8_t* data, int itemNum) {
         return false;
     }
 
-    Fifo *fifo = (Fifo*)handle;
-    memcpy(fifo->fifoPtr + fifo->ptrWrite * fifo->itemSize, data, (size_t)(fifo->itemSize * itemNum));
-    fifo->ptrWrite += itemNum;
+    Fifo *fifo = (Fifo *)handle;
 
-    if (fifo->ptrWrite >= fifo->itemSum) {
-        fifo->ptrWrite = 0;
+    int num = itemNum;
+    int delta = 0;
+    if (fifo->ptrRead <= fifo->ptrWrite) {
+        num = fifo->itemSum - fifo->ptrWrite;
+        if (itemNum <= num) {
+            num = itemNum;
+        } else {
+            delta = itemNum - num;
+        }
     }
+
+    if (num > 0) {
+        memcpy(fifo->fifoPtr + fifo->ptrWrite * fifo->itemSize, data, (size_t)(fifo->itemSize * num));
+        fifo->ptrWrite += num;
+        if (fifo->ptrWrite >= fifo->itemSum) {
+            fifo->ptrWrite = 0;
+        }
+    }
+    if (delta > 0) {
+        memcpy(fifo->fifoPtr + fifo->ptrWrite * fifo->itemSize, data + num, (size_t)(fifo->itemSize * delta));
+        fifo->ptrWrite += delta;
+        if (fifo->ptrWrite >= fifo->itemSum) {
+            fifo->ptrWrite = 0;
+        }
+    }
+
     if (fifo->ptrWrite == fifo->ptrRead) {
         fifo->isFull = true;
     }
@@ -142,15 +163,37 @@ bool TZFifoReadBatch(intptr_t handle, uint8_t* data, int size, int itemNum) {
         return false;
     }
 
-    Fifo *fifo = (Fifo*)handle;
+    Fifo *fifo = (Fifo *)handle;
     if (size < fifo->itemSize * itemNum) {
         return false;
     }
-    memcpy(data, fifo->fifoPtr + fifo->ptrRead * fifo->itemSize, (size_t)(fifo->itemSize * itemNum));
-    fifo->ptrRead += itemNum;
-    if (fifo->ptrRead >= fifo->itemSum) {
-        fifo->ptrRead = 0;
+
+    int num = itemNum;
+    int delta = 0;
+    if (fifo->ptrWrite <= fifo->ptrRead) {
+        num = fifo->itemSum - fifo->ptrRead;
+        if (itemNum <= num) {
+            num = itemNum;
+        } else {
+            delta = itemNum - num;
+        }
     }
+
+    if (num > 0) {
+        memcpy(data, fifo->fifoPtr + fifo->ptrRead * fifo->itemSize, (size_t)(fifo->itemSize * num));
+        fifo->ptrRead += num;
+        if (fifo->ptrRead >= fifo->itemSum) {
+            fifo->ptrRead = 0;
+        }
+    }
+    if (delta > 0) {
+        memcpy(data + num, fifo->fifoPtr + fifo->ptrRead * fifo->itemSize, (size_t)(fifo->itemSize * delta));
+        fifo->ptrRead += delta;
+        if (fifo->ptrRead >= fifo->itemSum) {
+            fifo->ptrRead = 0;
+        }
+    }
+
     fifo->isFull = false;
     return true;
 }

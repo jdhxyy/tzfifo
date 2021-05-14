@@ -21,6 +21,7 @@ static void printMallocInfo(void);
 static void testCase0(void);
 static void testCase1(void);
 static void testCase2(void);
+static void testCase3(void);
 
 int main(void) {
     TZMallocLoad(RAM_INTERVAL, 10, 100 * 1024, malloc(100 * 1024));
@@ -30,6 +31,7 @@ int main(void) {
     testCase0();
     testCase1();
     testCase2();
+    testCase3();
     printMallocInfo();
 }
 
@@ -107,5 +109,29 @@ static void testCase2(void) {
     char arr[10] = {0};
     int num = TZFifoReadMix(fifo, (uint8_t*)&t2, sizeof(struct _Test), (uint8_t*)arr, 10);
     printf("read mix:%d %d %d %s\n", num, t2.a, t2.b, arr);
+    TZFifoDelete(fifo);
+}
+
+static void testCase3(void) {
+    printf("-------------------->testCase3\n");
+
+    intptr_t fifo = TZFifoCreate(gMid, 10, 1);
+    char arr[100] = {0};
+    for (int i = 0; i < 100; i++) {
+        arr[i] = '0' + (char)i;
+    }
+
+    TZFifoWriteBatch(fifo, (uint8_t*)arr, 9);
+    printf("fifo可写：%d 可读：%d\n", TZFifoWriteableItemCount(fifo), TZFifoReadableItemCount(fifo));
+    char arr2[100] = {0};
+    TZFifoReadBatch(fifo, (uint8_t*)arr2, 100, TZFifoReadableItemCount(fifo));
+    printf("read:%s\n", arr2);
+
+    TZFifoWriteBatch(fifo, (uint8_t*)(arr + 1), 9);
+    printf("fifo可写：%d 可读：%d\n", TZFifoWriteableItemCount(fifo), TZFifoReadableItemCount(fifo));
+    memset(arr2, 0, 100);
+    TZFifoReadBatch(fifo, (uint8_t*)arr2, 100, TZFifoReadableItemCount(fifo));
+    printf("read:%s\n", arr2);
+
     TZFifoDelete(fifo);
 }
