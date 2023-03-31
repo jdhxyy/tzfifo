@@ -1,5 +1,5 @@
 // Copyright 2019-2021 The jdh99 Authors. All rights reserved.
-// fifo¿â.±¾fifoÊÇÂúÁË²»ÄÜĞ´ÈëÀàĞÍ
+// fifoåº“.æœ¬fifoæ˜¯æ»¡äº†ä¸èƒ½å†™å…¥ç±»å‹
 // Authors: jdh99 <jdh821@163.com>
 
 #include "tzfifo.h"
@@ -8,27 +8,27 @@
 
 #pragma pack(1)
 
-// fifo½á¹¹
+// fifoç»“æ„
 typedef struct {
     int ptrWrite;
     int ptrRead;
     bool isFull;
 
-    // fifoÖĞ´æ´¢µÄÔªËØÊı,²»ÊÇ×Ö½Ú´óĞ¡
+    // fifoä¸­å­˜å‚¨çš„å…ƒç´ æ•°,ä¸æ˜¯å­—èŠ‚å¤§å°
     int itemSum;
-    // ÔªËØ´óĞ¡.µ¥Î»: ×Ö½Ú
+    // å…ƒç´ å¤§å°.å•ä½: å­—èŠ‚
     int itemSize;
     uint8_t* fifoPtr;
 } Fifo;
 
 #pragma pack()
 
-// TZFifoCreate ´´½¨fifo
-// itemSum:fifoÖĞÔªËØÊı.×¢Òâ²»ÊÇ×Ö½ÚÊı
-// itemSize:ÔªËØ´óĞ¡.µ¥Î»: ×Ö½Ú
-// Èç¹ûÊÇ×Ö½ÚÁ÷ÔªËØ,ÔªËØ´óĞ¡Îª×Ö½ÚÁ÷×î´ó³¤¶È+2,2ÊÇ×Ö½ÚÁ÷³¤¶È
-// Èç¹ûÊÇ»ìºÏ½á¹¹ÔªËØ,ÔªËØ´óĞ¡Îª½á¹¹ÌåºÍ×Ö½ÚÁ÷×Ü³¤¶È+4,4ÊÇ½á¹¹Ìå³¤¶ÈºÍ×Ö½ÚÁ÷³¤¶È
-// ´´½¨³É¹¦·µ»Øfifo¾ä±ú.Èç¹û·µ»ØµÄÊÇ0±íÊ¾´´½¨Ê§°Ü
+// TZFifoCreate åˆ›å»ºfifo
+// itemSum:fifoä¸­å…ƒç´ æ•°.æ³¨æ„ä¸æ˜¯å­—èŠ‚æ•°
+// itemSize:å…ƒç´ å¤§å°.å•ä½: å­—èŠ‚
+// å¦‚æœæ˜¯å­—èŠ‚æµå…ƒç´ ,å…ƒç´ å¤§å°ä¸ºå­—èŠ‚æµæœ€å¤§é•¿åº¦+2,2æ˜¯å­—èŠ‚æµé•¿åº¦
+// å¦‚æœæ˜¯æ··åˆç»“æ„å…ƒç´ ,å…ƒç´ å¤§å°ä¸ºç»“æ„ä½“å’Œå­—èŠ‚æµæ€»é•¿åº¦+4,4æ˜¯ç»“æ„ä½“é•¿åº¦å’Œå­—èŠ‚æµé•¿åº¦
+// åˆ›å»ºæˆåŠŸè¿”å›fifoå¥æŸ„.å¦‚æœè¿”å›çš„æ˜¯0è¡¨ç¤ºåˆ›å»ºå¤±è´¥
 intptr_t TZFifoCreate(int mid, int itemSum, int itemSize) {
     if (mid  < 0 || itemSum <= 0 || itemSum <= 0) {
         return 0;
@@ -50,7 +50,7 @@ intptr_t TZFifoCreate(int mid, int itemSum, int itemSize) {
     return (intptr_t)fifo;
 }
 
-// TZFifoDelete É¾³ıfifo
+// TZFifoDelete åˆ é™¤fifo
 void TZFifoDelete(intptr_t handle) {
     if (handle == 0) {
         return;
@@ -60,13 +60,13 @@ void TZFifoDelete(intptr_t handle) {
     TZFree(fifo);
 }
 
-// TZFifoReadable ¼ì²éfifoÊÇ·ñ¿ÉÒÔĞ´Èë
+// TZFifoReadable æ£€æŸ¥fifoæ˜¯å¦å¯ä»¥å†™å…¥
 bool TZFifoWriteable(intptr_t handle) {	
     Fifo *fifo = (Fifo*)handle;
     return !fifo->isFull;
 }
 
-// TZFifoWrite fifoĞ´Èë
+// TZFifoWrite fifoå†™å…¥
 bool TZFifoWrite(intptr_t handle, uint8_t* data) {
     Fifo *fifo = (Fifo*)handle;
     if (fifo->isFull) {
@@ -85,8 +85,8 @@ bool TZFifoWrite(intptr_t handle, uint8_t* data) {
     return true;
 }
 
-// TZFifoWriteBatch fifoÅúÁ¿Ğ´Èë
-// ×¢Òâ:Èç¹û¿ÉĞ´ÈëÔªËØÊıĞ¡ÓÚ´ıĞ´ÈëÊı»áÖ±½Ó·µ»ØÊ§°Ü
+// TZFifoWriteBatch fifoæ‰¹é‡å†™å…¥
+// æ³¨æ„:å¦‚æœå¯å†™å…¥å…ƒç´ æ•°å°äºå¾…å†™å…¥æ•°ä¼šç›´æ¥è¿”å›å¤±è´¥
 bool TZFifoWriteBatch(intptr_t handle, uint8_t* data, int itemNum) {
     if (TZFifoWriteableItemCount(handle) < itemNum) {
         return false;
@@ -126,7 +126,7 @@ bool TZFifoWriteBatch(intptr_t handle, uint8_t* data, int itemNum) {
     return true;
 }
 
-// TZFifoReadable ¼ì²éfifoÊÇ·ñ¿ÉÒÔ¶ÁÈ¡
+// TZFifoReadable æ£€æŸ¥fifoæ˜¯å¦å¯ä»¥è¯»å–
 bool TZFifoReadable(intptr_t handle) {
     Fifo *fifo = (Fifo*)handle;
     if (fifo->ptrWrite == fifo->ptrRead && !fifo->isFull) {
@@ -135,8 +135,8 @@ bool TZFifoReadable(intptr_t handle) {
     return true;
 }
 
-// TZFifoRead fifo¶ÁÈ¡
-// dataĞèÌáÇ°¿ª±ÙºÃ¿Õ¼ä,Êı¾İ´æ´¢ÔÚdataÖĞ.sizeÊÇdata¿ª±Ù¿Õ¼ä´óĞ¡
+// TZFifoRead fifoè¯»å–
+// dataéœ€æå‰å¼€è¾Ÿå¥½ç©ºé—´,æ•°æ®å­˜å‚¨åœ¨dataä¸­.sizeæ˜¯dataå¼€è¾Ÿç©ºé—´å¤§å°
 bool TZFifoRead(intptr_t handle, uint8_t* data, int size) {
     Fifo *fifo = (Fifo*)handle;
     if (fifo->ptrWrite == fifo->ptrRead && !fifo->isFull) {
@@ -155,9 +155,9 @@ bool TZFifoRead(intptr_t handle, uint8_t* data, int size) {
     return true;
 }
 
-// TZFifoReadBatch fifoÅúÁ¿¶ÁÈ¡
-// dataĞèÌáÇ°¿ª±ÙºÃ¿Õ¼ä,Êı¾İ´æ´¢ÔÚdataÖĞ.sizeÊÇdata¿ª±Ù¿Õ¼ä´óĞ¡
-// ×¢Òâ:Èç¹û¿É¶ÁÈ¡ÔªËØÊıĞ¡ÓÚ´ı¶ÁÈ¡Êı»áÖ±½Ó·µ»ØÊ§°Ü
+// TZFifoReadBatch fifoæ‰¹é‡è¯»å–
+// dataéœ€æå‰å¼€è¾Ÿå¥½ç©ºé—´,æ•°æ®å­˜å‚¨åœ¨dataä¸­.sizeæ˜¯dataå¼€è¾Ÿç©ºé—´å¤§å°
+// æ³¨æ„:å¦‚æœå¯è¯»å–å…ƒç´ æ•°å°äºå¾…è¯»å–æ•°ä¼šç›´æ¥è¿”å›å¤±è´¥
 bool TZFifoReadBatch(intptr_t handle, uint8_t* data, int size, int itemNum) {
     if (TZFifoReadableItemCount(handle) < itemNum) {
         return false;
@@ -198,7 +198,7 @@ bool TZFifoReadBatch(intptr_t handle, uint8_t* data, int size, int itemNum) {
     return true;
 }
 
-// TZFifoReadableItemCount fifo¿É¶ÁµÄÔªËØÊı
+// TZFifoReadableItemCount fifoå¯è¯»çš„å…ƒç´ æ•°
 int TZFifoReadableItemCount(intptr_t handle) {
     Fifo *fifo = (Fifo*)handle;
     if (fifo->isFull) {
@@ -208,7 +208,7 @@ int TZFifoReadableItemCount(intptr_t handle) {
     }
 }
 
-// TZFifoWriteableItemCount fifo¿ÉĞ´µÄÔªËØÊı
+// TZFifoWriteableItemCount fifoå¯å†™çš„å…ƒç´ æ•°
 int TZFifoWriteableItemCount(intptr_t handle) {
     Fifo *fifo = (Fifo *)handle;
     if (fifo->isFull) {
@@ -222,7 +222,7 @@ int TZFifoWriteableItemCount(intptr_t handle) {
     }
 }
 
-// TZFifoWrite fifoĞ´Èë×Ö½ÚÁ÷
+// TZFifoWrite fifoå†™å…¥å­—èŠ‚æµ
 bool TZFifoWriteBytes(intptr_t handle, uint8_t* bytes, int size) {
     Fifo *fifo = (Fifo*)handle;
     if (fifo->isFull || size + 2 > fifo->itemSize || size > 0xffff) {
@@ -245,9 +245,9 @@ bool TZFifoWriteBytes(intptr_t handle, uint8_t* bytes, int size) {
     return true;
 }
 
-// TZFifoRead fifo¶ÁÈ¡×Ö½ÚÁ÷
-// bytesĞèÌáÇ°¿ª±ÙºÃ¿Õ¼ä,×Ö½ÚÁ÷´æ´¢ÔÚbytesÖĞ.sizeÊÇbytes¿ª±Ù¿Õ¼ä´óĞ¡
-// ·µ»Ø×Ö½ÚÁ÷µÄ×Ö½ÚÊı.0±íÊ¾¶ÁÈ¡Ê§°Ü
+// TZFifoRead fifoè¯»å–å­—èŠ‚æµ
+// byteséœ€æå‰å¼€è¾Ÿå¥½ç©ºé—´,å­—èŠ‚æµå­˜å‚¨åœ¨bytesä¸­.sizeæ˜¯byteså¼€è¾Ÿç©ºé—´å¤§å°
+// è¿”å›å­—èŠ‚æµçš„å­—èŠ‚æ•°.0è¡¨ç¤ºè¯»å–å¤±è´¥
 int TZFifoReadBytes(intptr_t handle, uint8_t* bytes, int size) {
     Fifo *fifo = (Fifo*)handle;
     if (fifo->ptrWrite == fifo->ptrRead && !fifo->isFull) {
@@ -274,8 +274,8 @@ int TZFifoReadBytes(intptr_t handle, uint8_t* bytes, int size) {
     return sizeGet;
 }
 
-// TZFifoWriteMix fifoĞ´Èë»ìºÏ½á¹¹.»ìºÏ½á¹¹ÊÇ:¹Ì¶¨³¤¶ÈµÄ½á¹¹Ìå+×Ö½ÚÁ÷
-// dataÊÇ½á¹¹Ìå,bytesÊÇ×Ö½ÚÁ÷
+// TZFifoWriteMix fifoå†™å…¥æ··åˆç»“æ„.æ··åˆç»“æ„æ˜¯:å›ºå®šé•¿åº¦çš„ç»“æ„ä½“+å­—èŠ‚æµ
+// dataæ˜¯ç»“æ„ä½“,bytesæ˜¯å­—èŠ‚æµ
 bool TZFifoWriteMix(intptr_t handle, uint8_t* data, int dataSize, uint8_t* bytes, int bytesSize) {
     Fifo *fifo = (Fifo*)handle;
     if (fifo->isFull || dataSize + bytesSize + 4 > fifo->itemSize || dataSize > 0xffff || bytesSize > 0xffff) {
@@ -304,9 +304,9 @@ bool TZFifoWriteMix(intptr_t handle, uint8_t* data, int dataSize, uint8_t* bytes
     return true;
 }
 
-// TZFifoReadMix fifo¶ÁÈ¡»ìºÏ½á¹¹.»ìºÏ½á¹¹ÊÇ:¹Ì¶¨³¤¶ÈµÄ½á¹¹Ìå+×Ö½ÚÁ÷
-// dataÊÇ½á¹¹Ìå,bytesÊÇ×Ö½ÚÁ÷.dataºÍbytesĞèÌáÇ°¿ª±ÙºÃ¿Õ¼ä
-// ·µ»Ø×Ö½ÚÁ÷µÄ×Ö½ÚÊı.0±íÊ¾¶ÁÈ¡Ê§°Ü
+// TZFifoReadMix fifoè¯»å–æ··åˆç»“æ„.æ··åˆç»“æ„æ˜¯:å›ºå®šé•¿åº¦çš„ç»“æ„ä½“+å­—èŠ‚æµ
+// dataæ˜¯ç»“æ„ä½“,bytesæ˜¯å­—èŠ‚æµ.dataå’Œbyteséœ€æå‰å¼€è¾Ÿå¥½ç©ºé—´
+// è¿”å›å­—èŠ‚æµçš„å­—èŠ‚æ•°.0è¡¨ç¤ºè¯»å–å¤±è´¥
 int TZFifoReadMix(intptr_t handle, uint8_t *data, int dataSize, uint8_t* bytes, int bytesSize) {
     Fifo *fifo = (Fifo*)handle;
     if (fifo->ptrWrite == fifo->ptrRead && !fifo->isFull) {
