@@ -6,13 +6,13 @@ CONFIG -= qt
 SOURCES += \
         main.c \
     ../../tzfifo.c \
-    ../../lib/tzmalloc/bget.c \
-    ../../lib/tzmalloc/tzmalloc.c
+    ../../clib/tzmalloc/bget.c \
+    ../../clib/tzmalloc/tzmalloc.c
 
 INCLUDEPATH += ../../
-INCLUDEPATH += ../../lib/tzmalloc
+INCLUDEPATH += ../../clib/tzmalloc
 
 HEADERS += \
     ../../tzfifo.h \
-    ../../lib/tzmalloc/bget.h \
-    ../../lib/tzmalloc/tzmalloc.h
+    ../../clib/tzmalloc/bget.h \
+    ../../clib/tzmalloc/tzmalloc.h

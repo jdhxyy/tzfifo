@@ -23,6 +23,14 @@ typedef struct {
 
 #pragma pack()
 
+static void getSnapshot(Fifo *fifo, Fifo* shot);
+
+// getWriteableItemCount fifo可写的元素数
+static int getWriteableItemCount(Fifo *fifo);
+
+// getReadableItemCount fifo可读的元素数
+static int getReadableItemCount(Fifo* fifo);
+
 // TZFifoCreate 创建fifo
 // itemSum:fifo中元素数.注意不是字节数
 // itemSize:元素大小.单位: 字节
@@ -69,35 +77,65 @@ bool TZFifoWriteable(intptr_t handle) {
 // TZFifoWrite fifo写入
 bool TZFifoWrite(intptr_t handle, uint8_t* data) {
     Fifo *fifo = (Fifo*)handle;
-    if (fifo->isFull) {
+
+    // 利用快照保存当前指针,防止多线程冲突导致变化
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+
+    if (shot.isFull) {
         return false;
     }
 
-    memcpy(fifo->fifoPtr + fifo->ptrWrite * fifo->itemSize, data, (size_t)fifo->itemSize);
-    fifo->ptrWrite++;
+    memcpy(shot.fifoPtr + shot.ptrWrite * shot.itemSize, data, (size_t)shot.itemSize);
+    shot.ptrWrite++;
 
-    if (fifo->ptrWrite >= fifo->itemSum) {
-        fifo->ptrWrite = 0;
+    if (shot.ptrWrite >= shot.itemSum) {
+        shot.ptrWrite = 0;
     }
-    if (fifo->ptrWrite == fifo->ptrRead) {
+
+    // 快照更新
+    fifo->ptrWrite = shot.ptrWrite;
+
+    // 如果快照的读指针与真实读指针不一致,则发生读取事件,fifo肯定并没有满
+    if (fifo->ptrRead == shot.ptrRead && shot.ptrWrite == shot.ptrRead) {
         fifo->isFull = true;
     }
+
     return true;
+}
+
+static void getSnapshot(Fifo *fifo, Fifo* shot) {
+    shot->itemSum = fifo->itemSum;
+    shot->itemSize = fifo->itemSize;
+    shot->fifoPtr = fifo->fifoPtr;
+    
+    for (;;) {
+        shot->isFull = fifo->isFull;
+        shot->ptrWrite = fifo->ptrWrite;
+        shot->ptrRead = fifo->ptrRead;
+
+        if (shot->isFull == fifo->isFull && shot->ptrWrite == fifo->ptrWrite && shot->ptrRead == fifo->ptrRead) {
+            return;
+        }
+    }
 }
 
 // TZFifoWriteBatch fifo批量写入
 // 注意:如果可写入元素数小于待写入数会直接返回失败
 bool TZFifoWriteBatch(intptr_t handle, uint8_t* data, int itemNum) {
-    if (TZFifoWriteableItemCount(handle) < itemNum) {
+    Fifo *fifo = (Fifo *)handle;
+    // 利用快照保存当前指针,防止多线程冲突导致变化
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+    
+    if (getWriteableItemCount(&shot) < itemNum) {
         return false;
     }
 
-    Fifo *fifo = (Fifo *)handle;
-
     int num = itemNum;
     int delta = 0;
-    if (fifo->ptrRead <= fifo->ptrWrite) {
-        num = fifo->itemSum - fifo->ptrWrite;
+    if (shot.ptrRead <= shot.ptrWrite) {
+        num = shot.itemSum - shot.ptrWrite;
         if (itemNum <= num) {
             num = itemNum;
         } else {
@@ -106,111 +144,33 @@ bool TZFifoWriteBatch(intptr_t handle, uint8_t* data, int itemNum) {
     }
 
     if (num > 0) {
-        memcpy(fifo->fifoPtr + fifo->ptrWrite * fifo->itemSize, data, (size_t)(fifo->itemSize * num));
-        fifo->ptrWrite += num;
-        if (fifo->ptrWrite >= fifo->itemSum) {
-            fifo->ptrWrite = 0;
+        memcpy(shot.fifoPtr + shot.ptrWrite * shot.itemSize, data, (size_t)(shot.itemSize * num));
+        shot.ptrWrite += num;
+        if (shot.ptrWrite >= shot.itemSum) {
+            shot.ptrWrite = 0;
         }
     }
     if (delta > 0) {
-        memcpy(fifo->fifoPtr + fifo->ptrWrite * fifo->itemSize, data + num, (size_t)(fifo->itemSize * delta));
-        fifo->ptrWrite += delta;
-        if (fifo->ptrWrite >= fifo->itemSum) {
-            fifo->ptrWrite = 0;
+        memcpy(shot.fifoPtr + shot.ptrWrite * shot.itemSize, data + num, (size_t)(shot.itemSize * delta));
+        shot.ptrWrite += delta;
+        if (shot.ptrWrite >= shot.itemSum) {
+            shot.ptrWrite = 0;
         }
     }
 
-    if (fifo->ptrWrite == fifo->ptrRead) {
+    // 快照更新
+    fifo->ptrWrite = shot.ptrWrite;
+
+    // 如果快照的读指针与真实读指针不一致,则发生读取事件,fifo肯定并没有满
+    if (fifo->ptrRead == shot.ptrRead && shot.ptrWrite == shot.ptrRead) {
         fifo->isFull = true;
     }
+
     return true;
 }
 
-// TZFifoReadable 检查fifo是否可以读取
-bool TZFifoReadable(intptr_t handle) {
-    Fifo *fifo = (Fifo*)handle;
-    if (fifo->ptrWrite == fifo->ptrRead && !fifo->isFull) {
-        return false;
-    }
-    return true;
-}
-
-// TZFifoRead fifo读取
-// data需提前开辟好空间,数据存储在data中.size是data开辟空间大小
-bool TZFifoRead(intptr_t handle, uint8_t* data, int size) {
-    Fifo *fifo = (Fifo*)handle;
-    if (fifo->ptrWrite == fifo->ptrRead && !fifo->isFull) {
-        return false;
-    }
-    if (size < fifo->itemSize) {
-        return false;
-    }
-
-    memcpy(data, fifo->fifoPtr + fifo->ptrRead * fifo->itemSize, (size_t)fifo->itemSize);
-    fifo->ptrRead++;
-    if (fifo->ptrRead >= fifo->itemSum) {
-        fifo->ptrRead = 0;
-    }
-    fifo->isFull = false;
-    return true;
-}
-
-// TZFifoReadBatch fifo批量读取
-// data需提前开辟好空间,数据存储在data中.size是data开辟空间大小
-// 注意:如果可读取元素数小于待读取数会直接返回失败
-bool TZFifoReadBatch(intptr_t handle, uint8_t* data, int size, int itemNum) {
-    if (TZFifoReadableItemCount(handle) < itemNum) {
-        return false;
-    }
-
-    Fifo *fifo = (Fifo *)handle;
-    if (size < fifo->itemSize * itemNum) {
-        return false;
-    }
-
-    int num = itemNum;
-    int delta = 0;
-    if (fifo->ptrWrite <= fifo->ptrRead) {
-        num = fifo->itemSum - fifo->ptrRead;
-        if (itemNum <= num) {
-            num = itemNum;
-        } else {
-            delta = itemNum - num;
-        }
-    }
-
-    if (num > 0) {
-        memcpy(data, fifo->fifoPtr + fifo->ptrRead * fifo->itemSize, (size_t)(fifo->itemSize * num));
-        fifo->ptrRead += num;
-        if (fifo->ptrRead >= fifo->itemSum) {
-            fifo->ptrRead = 0;
-        }
-    }
-    if (delta > 0) {
-        memcpy(data + num, fifo->fifoPtr + fifo->ptrRead * fifo->itemSize, (size_t)(fifo->itemSize * delta));
-        fifo->ptrRead += delta;
-        if (fifo->ptrRead >= fifo->itemSum) {
-            fifo->ptrRead = 0;
-        }
-    }
-
-    fifo->isFull = false;
-    return true;
-}
-
-// TZFifoReadableItemCount fifo可读的元素数
-int TZFifoReadableItemCount(intptr_t handle) {
-    Fifo *fifo = (Fifo*)handle;
-    if (fifo->isFull) {
-        return fifo->itemSum;
-    } else {
-        return (fifo->itemSum + fifo->ptrWrite - fifo->ptrRead) % fifo->itemSum;
-    }
-}
-
-// TZFifoWriteableItemCount fifo可写的元素数
-int TZFifoWriteableItemCount(intptr_t handle) {
-    Fifo *fifo = (Fifo *)handle;
+// getWriteableItemCount fifo可写的元素数
+static int getWriteableItemCount(Fifo *fifo) {
     if (fifo->isFull) {
         return 0;
     } else {
@@ -222,24 +182,143 @@ int TZFifoWriteableItemCount(intptr_t handle) {
     }
 }
 
-// TZFifoWrite fifo写入字节流
-bool TZFifoWriteBytes(intptr_t handle, uint8_t* bytes, int size) {
+// TZFifoReadable 检查fifo是否可以读取
+bool TZFifoReadable(intptr_t handle) {
     Fifo *fifo = (Fifo*)handle;
-    if (fifo->isFull || size + 2 > fifo->itemSize || size > 0xffff) {
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+
+    if (shot.ptrWrite == shot.ptrRead && !shot.isFull) {
+        return false;
+    }
+    return true;
+}
+
+// TZFifoRead fifo读取
+// data需提前开辟好空间,数据存储在data中.size是data开辟空间大小
+bool TZFifoRead(intptr_t handle, uint8_t* data, int size) {
+    Fifo *fifo = (Fifo*)handle;
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+
+    if (shot.ptrWrite == shot.ptrRead && !shot.isFull) {
+        return false;
+    }
+    if (size < shot.itemSize) {
         return false;
     }
 
-    uint8_t* ptr = fifo->fifoPtr + fifo->ptrWrite * fifo->itemSize;
+    memcpy(data, shot.fifoPtr + shot.ptrRead * shot.itemSize, (size_t)shot.itemSize);
+    shot.ptrRead++;
+    if (shot.ptrRead >= shot.itemSum) {
+        shot.ptrRead = 0;
+    }
+
+    // 快照更新
+    fifo->ptrRead = shot.ptrRead;
+
+    fifo->isFull = false;
+    return true;
+}
+
+// TZFifoReadBatch fifo批量读取
+// data需提前开辟好空间,数据存储在data中.size是data开辟空间大小
+// 注意:如果可读取元素数小于待读取数会直接返回失败
+bool TZFifoReadBatch(intptr_t handle, uint8_t* data, int size, int itemNum) {
+    Fifo *fifo = (Fifo *)handle;
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+
+    if (getReadableItemCount(&shot) < itemNum) {
+        return false;
+    }
+
+    if (size < shot.itemSize * itemNum) {
+        return false;
+    }
+
+    int num = itemNum;
+    int delta = 0;
+    if (shot.ptrWrite <= shot.ptrRead) {
+        num = shot.itemSum - shot.ptrRead;
+        if (itemNum <= num) {
+            num = itemNum;
+        } else {
+            delta = itemNum - num;
+        }
+    }
+
+    if (num > 0) {
+        memcpy(data, shot.fifoPtr + shot.ptrRead * shot.itemSize, (size_t)(shot.itemSize * num));
+        shot.ptrRead += num;
+        if (shot.ptrRead >= shot.itemSum) {
+            shot.ptrRead = 0;
+        }
+    }
+    if (delta > 0) {
+        memcpy(data + num, shot.fifoPtr + shot.ptrRead * shot.itemSize, (size_t)(shot.itemSize * delta));
+        shot.ptrRead += delta;
+        if (shot.ptrRead >= shot.itemSum) {
+            shot.ptrRead = 0;
+        }
+    }
+
+    // 快照更新
+    fifo->ptrRead = shot.ptrRead;
+
+    fifo->isFull = false;
+    return true;
+}
+
+// getReadableItemCount fifo可读的元素数
+static int getReadableItemCount(Fifo* fifo) {
+    if (fifo->isFull) {
+        return fifo->itemSum;
+    } else {
+        return (fifo->itemSum + fifo->ptrWrite - fifo->ptrRead) % fifo->itemSum;
+    }
+}
+
+// TZFifoReadableItemCount fifo可读的元素数
+int TZFifoReadableItemCount(intptr_t handle) {
+    Fifo *fifo = (Fifo*)handle;
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+    return getReadableItemCount(&shot);
+}
+
+// TZFifoWriteableItemCount fifo可写的元素数
+int TZFifoWriteableItemCount(intptr_t handle) {
+    Fifo *fifo = (Fifo *)handle;
+    return getWriteableItemCount(fifo);
+}
+
+// TZFifoWrite fifo写入字节流
+bool TZFifoWriteBytes(intptr_t handle, uint8_t* bytes, int size) {
+    Fifo *fifo = (Fifo*)handle;
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+
+    if (shot.isFull || size + 2 > shot.itemSize || size > 0xffff) {
+        return false;
+    }
+
+    uint8_t* ptr = shot.fifoPtr + shot.ptrWrite * shot.itemSize;
     int j = 0;
     ptr[j++] = (uint8_t)size;
     ptr[j++] = (uint8_t)(size >> 8);
     memcpy(ptr + j, bytes, (size_t)size);
-    fifo->ptrWrite++;
+    shot.ptrWrite++;
 
-    if (fifo->ptrWrite >= fifo->itemSum) {
-        fifo->ptrWrite = 0;
+    if (shot.ptrWrite >= shot.itemSum) {
+        shot.ptrWrite = 0;
     }
-    if (fifo->ptrWrite == fifo->ptrRead) {
+
+    // 快照更新
+    fifo->ptrWrite = shot.ptrWrite;
+
+    // 如果快照的读指针与真实读指针不一致,则发生读取事件,fifo肯定并没有满
+    if (fifo->ptrRead == shot.ptrRead && shot.ptrWrite == shot.ptrRead) {
         fifo->isFull = true;
     }
     return true;
@@ -250,15 +329,18 @@ bool TZFifoWriteBytes(intptr_t handle, uint8_t* bytes, int size) {
 // 返回字节流的字节数.0表示读取失败
 int TZFifoReadBytes(intptr_t handle, uint8_t* bytes, int size) {
     Fifo *fifo = (Fifo*)handle;
-    if (fifo->ptrWrite == fifo->ptrRead && !fifo->isFull) {
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+
+    if (shot.ptrWrite == shot.ptrRead && !shot.isFull) {
         return 0;
     }
 
-    uint8_t* ptr = fifo->fifoPtr + fifo->ptrRead * fifo->itemSize;
+    uint8_t* ptr = shot.fifoPtr + shot.ptrRead * shot.itemSize;
     int j = 0;
     int sizeGet = ptr[j] + (ptr[j + 1] << 8);
     j += 2;
-    if (size + j > fifo->itemSize) {
+    if (size + j > shot.itemSize) {
         return 0;
     }
     if (size < sizeGet) {
@@ -266,10 +348,14 @@ int TZFifoReadBytes(intptr_t handle, uint8_t* bytes, int size) {
     }
 
     memcpy(bytes, ptr + j, (size_t)sizeGet);
-    fifo->ptrRead++;
-    if (fifo->ptrRead >= fifo->itemSum) {
-        fifo->ptrRead = 0;
+    shot.ptrRead++;
+    if (shot.ptrRead >= shot.itemSum) {
+        shot.ptrRead = 0;
     }
+
+    // 快照更新
+    fifo->ptrRead = shot.ptrRead;
+
     fifo->isFull = false;
     return sizeGet;
 }
@@ -278,11 +364,14 @@ int TZFifoReadBytes(intptr_t handle, uint8_t* bytes, int size) {
 // data是结构体,bytes是字节流
 bool TZFifoWriteMix(intptr_t handle, uint8_t* data, int dataSize, uint8_t* bytes, int bytesSize) {
     Fifo *fifo = (Fifo*)handle;
-    if (fifo->isFull || dataSize + bytesSize + 4 > fifo->itemSize || dataSize > 0xffff || bytesSize > 0xffff) {
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+
+    if (shot.isFull || dataSize + bytesSize + 4 > shot.itemSize || dataSize > 0xffff || bytesSize > 0xffff) {
         return false;
     }
 
-    uint8_t* ptr = fifo->fifoPtr + fifo->ptrWrite * fifo->itemSize;
+    uint8_t* ptr = shot.fifoPtr + shot.ptrWrite * shot.itemSize;
     int j = 0;
     ptr[j++] = (uint8_t)dataSize;
     ptr[j++] = (uint8_t)(dataSize >> 8);
@@ -294,11 +383,16 @@ bool TZFifoWriteMix(intptr_t handle, uint8_t* data, int dataSize, uint8_t* bytes
     memcpy(ptr + j, bytes, (size_t)bytesSize);
     j += bytesSize;
 
-    fifo->ptrWrite++;
-    if (fifo->ptrWrite >= fifo->itemSum) {
-        fifo->ptrWrite = 0;
+    shot.ptrWrite++;
+    if (shot.ptrWrite >= shot.itemSum) {
+        shot.ptrWrite = 0;
     }
-    if (fifo->ptrWrite == fifo->ptrRead) {
+
+    // 快照更新
+    fifo->ptrWrite = shot.ptrWrite;
+
+    // 如果快照的读指针与真实读指针不一致,则发生读取事件,fifo肯定并没有满
+    if (fifo->ptrRead == shot.ptrRead && shot.ptrWrite == shot.ptrRead) {
         fifo->isFull = true;
     }
     return true;
@@ -309,15 +403,18 @@ bool TZFifoWriteMix(intptr_t handle, uint8_t* data, int dataSize, uint8_t* bytes
 // 返回字节流的字节数.0表示读取失败
 int TZFifoReadMix(intptr_t handle, uint8_t *data, int dataSize, uint8_t* bytes, int bytesSize) {
     Fifo *fifo = (Fifo*)handle;
-    if (fifo->ptrWrite == fifo->ptrRead && !fifo->isFull) {
+    Fifo shot;
+    getSnapshot(fifo, &shot);
+
+    if (shot.ptrWrite == shot.ptrRead && !shot.isFull) {
         return 0;
     }
 
-    uint8_t* ptr = fifo->fifoPtr + fifo->ptrRead * fifo->itemSize;
+    uint8_t* ptr = shot.fifoPtr + shot.ptrRead * shot.itemSize;
     int j = 0;
     int dataSizeGet = ptr[j] + (ptr[j + 1] << 8);
     j += 2;
-    if (dataSizeGet + j > fifo->itemSize) {
+    if (dataSizeGet + j > shot.itemSize) {
         return 0;
     }
     if (dataSize < dataSizeGet) {
@@ -328,7 +425,7 @@ int TZFifoReadMix(intptr_t handle, uint8_t *data, int dataSize, uint8_t* bytes, 
 
     int bytesSizeGet = ptr[j] + (ptr[j + 1] << 8);
     j += 2;
-    if (bytesSizeGet + j > fifo->itemSize) {
+    if (bytesSizeGet + j > shot.itemSize) {
         return 0;
     }
     if (bytesSize < bytesSizeGet) {
@@ -337,10 +434,25 @@ int TZFifoReadMix(intptr_t handle, uint8_t *data, int dataSize, uint8_t* bytes, 
     memcpy(bytes, ptr + j, (size_t)bytesSizeGet);
     j += bytesSizeGet;
 
-    fifo->ptrRead++;
-    if (fifo->ptrRead >= fifo->itemSum) {
-        fifo->ptrRead = 0;
+    shot.ptrRead++;
+    if (shot.ptrRead >= shot.itemSum) {
+        shot.ptrRead = 0;
     }
+
+    // 快照更新
+    fifo->ptrRead = shot.ptrRead;
+
     fifo->isFull = false;
     return bytesSizeGet;
+}
+
+// TZFifoClear 清空FIFO
+void TZFifoClear(intptr_t handle) {
+    if (handle == 0) {
+        return;
+    }
+    Fifo *fifo = (Fifo*)handle;
+    fifo->ptrWrite = 0;
+    fifo->ptrRead = 0;
+    fifo->isFull = false;
 }

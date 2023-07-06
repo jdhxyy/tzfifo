@@ -1,5 +1,5 @@
 .vscode
-/lib
+/clib
 
 # qtcreator generated files
 /test/build*

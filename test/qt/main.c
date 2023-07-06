@@ -48,7 +48,7 @@ static void printMallocInfo(void) {
 static void testCase0(void) {
     printf("-------------------->testCase0\n");
 
-    // fifo1操作
+    // fifo1鎿嶄綔
     struct _Test arr;
     intptr_t fifo1 = TZFifoCreate(gMid, 10, sizeof(struct _Test));
     for (uint8_t i = 0; i < 10; i++) {
@@ -56,7 +56,7 @@ static void testCase0(void) {
         arr.b = 100 + i;
         if (TZFifoWriteable(fifo1)) {
             TZFifoWrite(fifo1, (void *)&arr);
-            printf("可写：%d 可读：%d\n", TZFifoWriteableItemCount(fifo1), TZFifoReadableItemCount(fifo1));
+            printf("ready write:%d ready read:%d\n", TZFifoWriteableItemCount(fifo1), TZFifoReadableItemCount(fifo1));
         }
     }
 
@@ -68,13 +68,13 @@ static void testCase0(void) {
         printf("read:%d %d\n", arr.a, arr.b);
     }
 
-    // fifo2操作
+    // fifo2鎿嶄綔
     intptr_t fifo2 = TZFifoCreate(gMid, 100, 1);
     char str_arr[100] = {0};
     memcpy(str_arr, "jdh", 3);
     TZFifoWriteBatch(fifo2, (uint8_t*)str_arr, 3);
 
-    printf("fifo2可写：%d 可读：%d\n", TZFifoWriteableItemCount(fifo2), TZFifoReadableItemCount(fifo2));
+    printf("fifo2 ready write:%d ready read:%d\n", TZFifoWriteableItemCount(fifo2), TZFifoReadableItemCount(fifo2));
 
     str_arr[0] = 0;
     TZFifoReadBatch(fifo2, (uint8_t*)str_arr, 100, TZFifoReadableItemCount(fifo2));
@@ -122,13 +122,13 @@ static void testCase3(void) {
     }
 
     TZFifoWriteBatch(fifo, (uint8_t*)arr, 9);
-    printf("fifo可写：%d 可读：%d\n", TZFifoWriteableItemCount(fifo), TZFifoReadableItemCount(fifo));
+    printf("fifo ready write:%d ready read:%d\n", TZFifoWriteableItemCount(fifo), TZFifoReadableItemCount(fifo));
     char arr2[100] = {0};
     TZFifoReadBatch(fifo, (uint8_t*)arr2, 100, TZFifoReadableItemCount(fifo));
     printf("read:%s\n", arr2);
 
     TZFifoWriteBatch(fifo, (uint8_t*)(arr + 1), 9);
-    printf("fifo可写：%d 可读：%d\n", TZFifoWriteableItemCount(fifo), TZFifoReadableItemCount(fifo));
+    printf("fifo ready write:%d ready read:%d\n", TZFifoWriteableItemCount(fifo), TZFifoReadableItemCount(fifo));
     memset(arr2, 0, 100);
     TZFifoReadBatch(fifo, (uint8_t*)arr2, 100, TZFifoReadableItemCount(fifo));
     printf("read:%s\n", arr2);

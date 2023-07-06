@@ -5,6 +5,10 @@
 // 1.结构体读写,TZFifoWrite/TZFifoRead
 // 2.字节流读写,TZFifoWriteBytes/TZFifoReadBytes
 // 3.结构体+字节流混合结构读写,TZFifoWriteMix/TZFifoReadMix
+// 4.字节读写,TZFifoWriteBatch/TZFifoReadBatch  
+// 注意:
+// 字节流读写中存储的字节流值得是按帧存储的字节流.其中元素的最大长度需要大于单帧字节流的最大长度
+// 结构体+字节流混合存储的也是按帧存储的
 
 #ifndef TZFIFO_H
 #define TZFIFO_H
@@ -67,5 +71,8 @@ bool TZFifoWriteMix(intptr_t handle, uint8_t* data, int dataSize, uint8_t* bytes
 // data是结构体,bytes是字节流.data和bytes需提前开辟好空间
 // 返回字节流的字节数.0表示读取失败
 int TZFifoReadMix(intptr_t handle, uint8_t *data, int dataSize, uint8_t* bytes, int bytesSize);
+
+// TZFifoClear 清空FIFO
+void TZFifoClear(intptr_t handle);
 
 #endif
