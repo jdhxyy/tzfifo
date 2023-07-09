@@ -217,7 +217,13 @@ bool TZFifoRead(intptr_t handle, uint8_t* data, int size) {
     // 快照更新
     fifo->ptrRead = shot.ptrRead;
 
-    fifo->isFull = false;
+    // 解决并发问题
+    for (;;) {
+        fifo->isFull = false;
+        if (fifo->isFull == false) {
+            break;
+        }
+    }
     return true;
 }
 
@@ -266,7 +272,13 @@ bool TZFifoReadBatch(intptr_t handle, uint8_t* data, int size, int itemNum) {
     // 快照更新
     fifo->ptrRead = shot.ptrRead;
 
-    fifo->isFull = false;
+    // 解决并发问题
+    for (;;) {
+        fifo->isFull = false;
+        if (fifo->isFull == false) {
+            break;
+        }
+    }
     return true;
 }
 
@@ -356,7 +368,13 @@ int TZFifoReadBytes(intptr_t handle, uint8_t* bytes, int size) {
     // 快照更新
     fifo->ptrRead = shot.ptrRead;
 
-    fifo->isFull = false;
+    // 解决并发问题
+    for (;;) {
+        fifo->isFull = false;
+        if (fifo->isFull == false) {
+            break;
+        }
+    }
     return sizeGet;
 }
 
@@ -443,6 +461,10 @@ int TZFifoReadMix(intptr_t handle, uint8_t *data, int dataSize, uint8_t* bytes, 
     fifo->ptrRead = shot.ptrRead;
 
     fifo->isFull = false;
+    // 解决并发问题
+    if (fifo->isFull == true) {
+        fifo->isFull = false;
+    }
     return bytesSizeGet;
 }
 
